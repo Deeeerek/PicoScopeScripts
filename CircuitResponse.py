@@ -1,10 +1,4 @@
 """
-PS2000 Demo.
-By: Colin O'Flynn, based on Mark Harfouche's software
-This is a demo of how to use AWG with the Picoscope 2204 along with capture
-It was tested with the PS2204A USB2.0 version
-The AWG is connected to Channel A.
-Nothing else is required.
 NOTE: Must change line below to use with "A" and "B" series PS2000 models
 See http://www.picotech.com/document/pdf/ps2000pg.en-10.pdf for PS2000 models:
 PicoScope 2104
@@ -35,42 +29,72 @@ from picoscope import ps2000
 from picoscope import ps2000a
 import pylab as plt
 import numpy as np
+import peakutils
 
-def AmpPhase(ps, freq):
+def avgDelay(input,output,minDist):
+    inputPeaks = peakutils.indexes(input, thres=0.5, min_dist=minDist)
+    outputPeaks = peakutils.indexes(output, thres=0.5, min_dist=minDist)
+
+    avgDifference = 0;
+    for i in range(inputPeaks.size):
+        if i < outputPeaks.size:
+            avgDifference +=  outputPeaks[i] - inputPeaks[i]
+
+    return avgDifference / min([inputPeaks.size,outputPeaks.size])
+def AmpPhase(ps, freq, genAmp,lastRange):
     Amp = 0.0
     Phase = 0.0
 
-    periods = 10 # 10 periods wil be reorded
+    periods = 100 # 10 periods wil be reorded
 
     observationPeriod = (1/freq)*periods
+    period = 1/freq
+    outputRange = 2.0
+    ranges = [2.0 , 1.0 , 0.5 , 0.2 , 0.1 , 0.05]
+    samplesPerObservation = 16384
+
+    for idx, range in enumerate(ranges):
+       
+       
+        
+        if (range > lastRange):
+            continue
+        else:
+            lastRange = range
+
+        sampling_interval = observationPeriod / samplesPerObservation
+        (actualSamplingInterval, nSamples, maxSamples) = ps.setSamplingInterval(sampling_interval, observationPeriod)
+
+        # the setChannel command will chose the next largest amplitude
+        channelRange = ps.setChannel('A', 'DC', range, 0.0, enabled=True, BWLimited=False)
+        ps.setChannel('B', 'DC', range, 0.0, enabled=True, BWLimited=False)
+
+        ps.setSimpleTrigger('A', 0.0, 'Rising', timeout_ms=100, enabled=True)
+
+        ps.setSigGenBuiltInSimple(offsetVoltage=0, pkToPk=genAmp, waveType="Sine", frequency=freq)
+
+        ps.runBlock()
+        ps.waitReady()
+        time.sleep(0.5)
+        ps.runBlock()
+        ps.waitReady()
+        input = ps.getDataV('A', nSamples, returnOverflow=False)
+        output = ps.getDataV('B', nSamples, returnOverflow=False)
+
+        dataTimeAxis = np.arange(nSamples)
+        Amp = max(output)
+
+        # in samples
+        timeDelay = (avgDelay(input, output, samplesPerObservation/periods*4)*(actualSamplingInterval) )
+        Phase =  timeDelay/period * 360
+        if max(output) > range/2 :
+            break
 
 
-
-
-    channelRange = ps.setChannel('A', 'DC', 2.0, 0.0, enabled=True, BWLimited=False)
-    print("Chosen channel range = %d" % channelRange)
-
-    ps.setSimpleTrigger('A', 0.0, 'Rising', timeout_ms=100, enabled=True)
-
-    ps.setSigGenBuiltInSimple(offsetVoltage=0, pkToPk=1.2, waveType="Sine", frequency=50E3)
-
-    ps.runBlock()
-    ps.waitReady()
-    print("Waiting for awg to settle.")
-    time.sleep(2.0)
-    ps.runBlock()
-    ps.waitReady()
-    print("Done waiting for trigger")
-    dataA = ps.getDataV('A', nSamples, returnOverflow=False)
-
-    dataTimeAxis = np.arange(nSamples) * actualSamplingInterval
-    Amp = max(dataA)
-
-
-    return (Amp,Phase)
-
-
-
+    print("Frequency: " + str(freq))
+    print("Amplitude: " + str(Amp))
+    print("Phase: " + str(Phase))
+    return (Phase,Amp*2,lastRange) # return phase in degrees and P-P 
 
 
 if __name__ == "__main__":
@@ -84,20 +108,14 @@ if __name__ == "__main__":
     print("Found the following picoscope:")
     print(ps.getAllUnitInfo())
 
-    waveform_desired_duration = 50E-6
-    obs_duration = 3 * waveform_desired_duration
-    sampling_interval = obs_duration / 4096
-
-    (actualSamplingInterval, nSamples, maxSamples) = \
-        ps.setSamplingInterval(sampling_interval, obs_duration)
-    print("Sampling interval = %f ns" % (actualSamplingInterval * 1E9))
-    print("Taking  samples = %d" % nSamples)
-    print("Maximum samples = %d" % maxSamples)
-
-    # the setChannel command will chose the next largest amplitude
-   
-
-
+    frequencies = range(10000,1000000,10000)
+    Phases = []
+    Amplitudes = []
+    lastRange = 2.0
+    for freq in frequencies:
+        (Phase,Amp,lastRange) = AmpPhase(ps,freq,1.2,lastRange)
+        Phases.append(Phase)
+        Amplitudes.append(Amp)
 
 
 
@@ -107,11 +125,19 @@ if __name__ == "__main__":
     #Uncomment following for call to .show() to not block
     #plt.ion()
     
+
     plt.figure()
-    plt.plot(dataTimeAxis, dataA, label="Clock")
+    plt.subplot(211)
+    plt.plot(frequencies, Phases, label="Phase")
     plt.grid(True, which='major')
-    plt.title("Picoscope 2000 waveforms")
+    plt.ylabel("Degrees")
+    plt.xlabel("Frequency")
+    plt.legend()
+    plt.subplot(212)
+    plt.plot(frequencies, Amplitudes, label="Amplitude")
+    plt.grid(True, which='major')
     plt.ylabel("Voltage (V)")
-    plt.xlabel("Time (ms)")
+    plt.xlabel("Frequency")
     plt.legend()
     plt.show()
+    
