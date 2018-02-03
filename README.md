@@ -6,3 +6,4 @@ Needed libraries and dependencies:
 		pylab
 		numpy
 		peakutils
+for further information please go to wiki.
