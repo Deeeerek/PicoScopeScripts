@@ -4,13 +4,15 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>4ad4ca6c-6aa2-4adb-8f37-ed431d1604c3</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>CircuitResponse.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>PicoScope Scripts</Name>
     <RootNamespace>PicoScope Scripts</RootNamespace>
+    <IsWindowsApplication>True</IsWindowsApplication>
+    <InterpreterId>Global|PythonCore|3.6</InterpreterId>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,9 +24,18 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CircuitResponse.py" />
-    <Compile Include="test.py">
+    <Compile Include="main.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="MainWindow.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Test1.py">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="Global|PythonCore|3.6" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
